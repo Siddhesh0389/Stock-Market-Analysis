@@ -1,11 +1,11 @@
-// pages/Dashboard.jsx - Updated to prevent reloads after market close
+// pages/Dashboard.jsx - Updated to show ALL stocks in featured section
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import LivePriceTicker from '../components/LivePriceTicker';
 import MarketOverview from '../components/MarketOverview';
 import StockCard from '../components/StockCard';
 import CandleChart from '../components/CandleChart';
-import { fetchTopStocks, fetchStockHistory, hasClosingPrices } from '../services/stockApi';
+import { fetchAllStocks, fetchStockHistory, hasClosingPrices } from '../services/stockApi';
 import { isMarketOpen, isMarketClosedForDay } from '../utils/marketHours';
 import { 
   TrendingUpIcon, 
@@ -29,20 +29,21 @@ const Dashboard = () => {
         // If market is closed and we have closing prices, use them without API call
         if (isMarketClosedForDay() && hasClosingPrices()) {
           console.log('📊 Using stored closing prices for dashboard');
-          const stocksData = await fetchTopStocks(8, false); // Don't force real-time updates
+          const stocksData = await fetchAllStocks(); // Get ALL stocks
           const chartData = await fetchStockHistory(selectedStock);
           setStocks(stocksData);
           setChartData(chartData);
           setIsStatic(true);
         } else {
           const [stocksData, chartData] = await Promise.all([
-            fetchTopStocks(8, true),
+            fetchAllStocks(), // Get ALL stocks instead of limited
             fetchStockHistory(selectedStock)
           ]);
           setStocks(stocksData);
           setChartData(chartData);
           setIsStatic(!isMarketOpen());
         }
+        console.log(`📊 Dashboard loaded ${stocksData.length} stocks`);
       } catch (error) {
         console.error('Error loading dashboard data:', error);
       } finally {
@@ -63,13 +64,12 @@ const Dashboard = () => {
     };
   }, [selectedStock]);
 
-  // ... rest of the component remains the same, but add static indicator
   const topGainers = stocks.filter(s => parseFloat(s.change) >= 0)
-    .sort((a, b) => parseFloat(b.change) - parseFloat(a.change))
+    .sort((a, b) => parseFloat(b.changePercent) - parseFloat(a.changePercent))
     .slice(0, 4);
 
   const topLosers = stocks.filter(s => parseFloat(s.change) < 0)
-    .sort((a, b) => parseFloat(a.change) - parseFloat(b.change))
+    .sort((a, b) => parseFloat(a.changePercent) - parseFloat(b.changePercent))
     .slice(0, 4);
 
   if (loading) {
@@ -231,25 +231,30 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Featured Stocks */}
+        {/* Featured Stocks - Show ALL stocks */}
         <div>
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900">Featured Stocks</h2>
-              <p className="text-gray-600 mt-1">Popular NSE stocks with real-time updates</p>
+              <h2 className="text-2xl font-bold text-gray-900">All NSE Stocks</h2>
+              <p className="text-gray-600 mt-1">
+                {isStatic 
+                  ? `Complete market overview with ${stocks.length} stocks`
+                  : `Complete real-time overview of ${stocks.length} NSE stocks`
+                }
+              </p>
             </div>
             <Link 
               to="/stocks" 
               className="mt-4 lg:mt-0 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors duration-200 font-semibold inline-flex items-center space-x-2"
             >
-              <span>View All Stocks</span>
+              <span>View Detailed Analysis</span>
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </Link>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {stocks.slice(0, 8).map((stock) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
+            {stocks.map((stock) => (
               <StockCard key={stock.symbol} stock={stock} />
             ))}
           </div>
